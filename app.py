@@ -23,36 +23,47 @@ def voice():
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    recording_url = request.form["RecordingUrl"] + ".mp3"
-    audio = requests.get(recording_url)
+    try:
+        recording_url = request.form["RecordingUrl"] + ".mp3"
+        audio = requests.get(recording_url)
 
-    # Save audio to a temporary file
-    with open("temp.mp3", "wb") as f:
-        f.write(audio.content)
+        # Save audio to a temporary file
+        with open("temp.mp3", "wb") as f:
+            f.write(audio.content)
 
-    # Transcribe with OpenAI Whisper
-    with open("temp.mp3", "rb") as f:
-        whisper_response = openai.Audio.transcribe(
-            model="whisper-1",
-            file=f
+        # Transcribe with OpenAI Whisper
+        with open("temp.mp3", "rb") as f:
+            whisper_response = openai.Audio.transcribe(
+                model="whisper-1",
+                file=f
+            )
+        user_text = whisper_response["text"]
+
+        # ChatGPT response
+        gpt_response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a friendly receptionist for a dental clinic in Melbourne."},
+                {"role": "user", "content": user_text}
+            ]
         )
-    user_text = whisper_response["text"]
+        reply = gpt_response.choices[0].message.content
 
-    # ChatGPT response
-    gpt_response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a friendly receptionist for a dental clinic in Melbourne."},
-            {"role": "user", "content": user_text}
-        ]
-    )
-    reply = gpt_response.choices[0].message.content
+        # Reply back to caller
+        response = VoiceResponse()
+        response.say(reply)
+        return str(response)
 
-    # Reply back to caller
-    response = VoiceResponse()
-    response.say(reply)
-    return str(response)
+    except Exception as e:
+        # Catch all errors and respond gracefully
+        print(f"Error in /transcribe: {e}")
+        response = VoiceResponse()
+        response.say("Sorry, there was a problem processing your request. Please try again later.")
+        return str(response)
 
 @app.route("/")
 def home():
     return "Dental bot running"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
