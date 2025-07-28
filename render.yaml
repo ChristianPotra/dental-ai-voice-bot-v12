@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: dental-ai-voice-bot-v9
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PORT
+        value: 10000
