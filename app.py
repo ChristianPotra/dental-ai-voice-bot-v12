@@ -7,7 +7,6 @@ import os
 
 app = Flask(__name__)
 
-# Initialize OpenAI client
 client = OpenAI()
 
 @app.route("/voice", methods=["POST"])
@@ -29,14 +28,12 @@ def transcribe():
         audio = requests.get(recording_url)
         audio_file = BytesIO(audio.content)
 
-        # Transcribe audio using Whisper
         whisper_response = client.audio.transcriptions.create(
             file=audio_file,
             model="whisper-1"
         )
         user_text = whisper_response.text
 
-        # Get ChatGPT response
         gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -46,7 +43,6 @@ def transcribe():
         )
         reply = gpt_response.choices[0].message.content
 
-        # Respond to caller with Twilio
         response = VoiceResponse()
         response.say(reply)
         return str(response)
