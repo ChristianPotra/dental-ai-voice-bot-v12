@@ -1,13 +1,14 @@
 from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
-import openai
+from io import BytesIO
+from openai import OpenAI
 import os
 
 app = Flask(__name__)
 
-# Load OpenAI API key from environment
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client
+client = OpenAI()
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -26,21 +27,17 @@ def transcribe():
     try:
         recording_url = request.form["RecordingUrl"] + ".mp3"
         audio = requests.get(recording_url)
+        audio_file = BytesIO(audio.content)
 
-        # Save audio to a temporary file
-        with open("temp.mp3", "wb") as f:
-            f.write(audio.content)
+        # Transcribe audio using Whisper
+        whisper_response = client.audio.transcriptions.create(
+            file=audio_file,
+            model="whisper-1"
+        )
+        user_text = whisper_response.text
 
-        # Transcribe with OpenAI Whisper
-        with open("temp.mp3", "rb") as f:
-            whisper_response = openai.Audio.transcribe(
-                model="whisper-1",
-                file=f
-            )
-        user_text = whisper_response["text"]
-
-        # ChatGPT response
-        gpt_response = openai.ChatCompletion.create(
+        # Get ChatGPT response
+        gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a friendly receptionist for a dental clinic in Melbourne."},
@@ -49,13 +46,12 @@ def transcribe():
         )
         reply = gpt_response.choices[0].message.content
 
-        # Reply back to caller
+        # Respond to caller with Twilio
         response = VoiceResponse()
         response.say(reply)
         return str(response)
 
     except Exception as e:
-        # Catch all errors and respond gracefully
         print(f"Error in /transcribe: {e}")
         response = VoiceResponse()
         response.say("Sorry, there was a problem processing your request. Please try again later.")
