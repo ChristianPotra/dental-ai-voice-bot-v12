@@ -59,3 +59,6 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+    import os
+print("OPENAI_API_KEY starts with:", os.getenv("OPENAI_API_KEY")[:5])
