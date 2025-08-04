@@ -59,8 +59,6 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
     recording_url = request.form["RecordingUrl"]  # ← REMOVE the + ".mp3"
     audio = requests.get(recording_url)
 
