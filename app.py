@@ -23,24 +23,24 @@ def voice():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        # Get Twilio recording URL
-        recording_url = request.form["RecordingUrl"] + ".wav"
-        print("Recording URL:", recording_url)
+        # Use the correct recording media URL
+        recording_url = request.form["RecordingUrl"]
+        audio_url = f"{recording_url}.mp3"
+        print("Downloading audio from:", audio_url)
 
-        # Download audio file
-        audio = requests.get(recording_url)
-        with open("temp.wav", "wb") as f:
-            f.write(audio.content)
+        # Download the audio file
+        audio = requests.get(audio_url)
+        audio_file = BytesIO(audio.content)
 
-        # Send .wav file to Whisper
-        with open("temp.wav", "rb") as f:
-            whisper_response = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=f
-            )
+        # Send to OpenAI Whisper
+        whisper_response = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=("audio.mp3", audio_file),
+            mime_type="audio/mpeg"
+        )
         user_text = whisper_response.text
 
-        # Send transcription to ChatGPT
+        # Send to GPT for a reply
         gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -50,7 +50,7 @@ def transcribe():
         )
         reply = gpt_response.choices[0].message.content
 
-        # Respond to the caller
+        # Respond to caller
         response = VoiceResponse()
         response.say(reply)
         return str(response)
@@ -60,7 +60,7 @@ def transcribe():
         response = VoiceResponse()
         response.say("Sorry, there was a problem processing your request. Please try again later.")
         return str(response)
-
+    
 @app.route("/")
 def home():
     return "Dental bot running"
