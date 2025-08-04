@@ -25,17 +25,20 @@ def transcribe():
     try:
         recording_url = request.form["RecordingUrl"]
         audio = requests.get(recording_url)
-        with open("temp.wav", "wb") as f:
-            f.write(audio.content)
 
-        with open("temp.wav", "rb") as f:
-            whisper_response = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=f
-            )
+        # Save to BytesIO buffer
+        audio_file = BytesIO(audio.content)
+        audio_file.name = "audio.mp3"  # Trick to give OpenAI a valid name & format
+
+        # Transcribe with Whisper
+        whisper_response = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
+        )
 
         user_text = whisper_response.text
 
+        # Send to ChatGPT
         gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -54,6 +57,7 @@ def transcribe():
         response = VoiceResponse()
         response.say("Sorry, there was a problem processing your request. Please try again later.")
         return str(response)
+
 
 @app.route("/")
 def home():
