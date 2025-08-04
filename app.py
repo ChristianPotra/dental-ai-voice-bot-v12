@@ -2,12 +2,11 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 from io import BytesIO
-from openai import OpenAI
 import os
+from openai import OpenAI
 
 app = Flask(__name__)
-
-client = OpenAI()
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -24,14 +23,17 @@ def voice():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        recording_url = request.form["RecordingUrl"] + ".mp3"
+        recording_url = request.form["RecordingUrl"]
         audio = requests.get(recording_url)
-        audio_file = BytesIO(audio.content)
+        with open("temp.wav", "wb") as f:
+            f.write(audio.content)
 
-        whisper_response = client.audio.transcriptions.create(
-            file=audio_file,
-            model="whisper-1"
-        )
+        with open("temp.wav", "rb") as f:
+            whisper_response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f
+            )
+
         user_text = whisper_response.text
 
         gpt_response = client.chat.completions.create(
@@ -59,18 +61,3 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    recording_url = request.form["RecordingUrl"]  # ← REMOVE the + ".mp3"
-    audio = requests.get(recording_url)
-
-    # Save audio to temp.wav (safer)
-    with open("temp.wav", "wb") as f:
-        f.write(audio.content)
-
-    # Transcribe with OpenAI Whisper
-    with open("temp.wav", "rb") as f:
-        whisper_response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f
-        )
-    user_text = whisper_response.text
-
