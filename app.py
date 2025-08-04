@@ -23,22 +23,24 @@ def voice():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        recording_url = request.form["RecordingUrl"]
+        # Get Twilio recording URL
+        recording_url = request.form["RecordingUrl"] + ".wav"
+        print("Recording URL:", recording_url)
+
+        # Download audio file
         audio = requests.get(recording_url)
+        with open("temp.wav", "wb") as f:
+            f.write(audio.content)
 
-        # Save to BytesIO buffer
-        audio_file = BytesIO(audio.content)
-        audio_file.name = "audio.mp3"  # Trick to give OpenAI a valid name & format
-
-        # Transcribe with Whisper
-        whisper_response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
-
+        # Send .wav file to Whisper
+        with open("temp.wav", "rb") as f:
+            whisper_response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f
+            )
         user_text = whisper_response.text
 
-        # Send to ChatGPT
+        # Send transcription to ChatGPT
         gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -48,6 +50,7 @@ def transcribe():
         )
         reply = gpt_response.choices[0].message.content
 
+        # Respond to the caller
         response = VoiceResponse()
         response.say(reply)
         return str(response)
@@ -57,7 +60,6 @@ def transcribe():
         response = VoiceResponse()
         response.say("Sorry, there was a problem processing your request. Please try again later.")
         return str(response)
-
 
 @app.route("/")
 def home():
