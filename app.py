@@ -59,6 +59,20 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    recording_url = request.form["RecordingUrl"]  # ← REMOVE the + ".mp3"
+    audio = requests.get(recording_url)
 
-    import os
-print("OPENAI_API_KEY starts with:", os.getenv("OPENAI_API_KEY")[:5])
+    # Save audio to temp.wav (safer)
+    with open("temp.wav", "wb") as f:
+        f.write(audio.content)
+
+    # Transcribe with OpenAI Whisper
+    with open("temp.wav", "rb") as f:
+        whisper_response = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f
+        )
+    user_text = whisper_response.text
+
