@@ -2,12 +2,12 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 import os
-from openai import OpenAI
+import openai
 
 app = Flask(__name__)
 
-# Initialize OpenAI client with your API key from environment variables
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# Set your OpenAI API key
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -26,28 +26,21 @@ def transcribe():
     try:
         recording_url = request.form["RecordingUrl"]
         audio_url = f"{recording_url}.mp3"
-        print(f"Downloading audio from: {audio_url}")
+        print("Downloading audio from:", audio_url)
 
-        # Download the recorded audio from Twilio
-        audio_response = requests.get(audio_url)
-        audio_response.raise_for_status()  # Raise error if download fails
-
-        # Save to a temp file
+        audio = requests.get(audio_url)
         with open("temp.mp3", "wb") as f:
-            f.write(audio_response.content)
+            f.write(audio.content)
 
-        # Open the file and send it to OpenAI Whisper for transcription
-        with open("temp.mp3", "rb") as audio_file:
-            whisper_response = client.audio.transcriptions.create(
+        with open("temp.mp3", "rb") as f:
+            transcription = openai.audio.transcribe(
                 model="whisper-1",
-                file=audio_file
+                file=f
             )
 
-        user_text = whisper_response.text
-        print(f"Transcribed text: {user_text}")
+        user_text = transcription["text"]
 
-        # Generate a response from GPT-4 based on the transcription
-        chat_response = client.chat.completions.create(
+        chat_response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a friendly receptionist for a dental clinic in Melbourne."},
@@ -56,9 +49,7 @@ def transcribe():
         )
 
         reply = chat_response.choices[0].message.content
-        print(f"GPT reply: {reply}")
 
-        # Respond to caller with the generated reply
         response = VoiceResponse()
         response.say(reply)
         return str(response)
@@ -66,7 +57,7 @@ def transcribe():
     except Exception as e:
         print(f"Error in /transcribe: {e}")
         response = VoiceResponse()
-        response.say("Sorry, there was a problem processing your request. Please try again later.")
+        response.say("Sorry, there was a problem processing your request.")
         return str(response)
 
 @app.route("/")
@@ -74,5 +65,5 @@ def home():
     return "Dental bot running"
 
 if __name__ == "__main__":
-    # Run on the port assigned by your environment (e.g., Render)
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
