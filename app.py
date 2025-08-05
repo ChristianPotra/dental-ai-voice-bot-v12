@@ -1,7 +1,6 @@
 from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
-from io import BytesIO
 import os
 from openai import OpenAI
 
@@ -28,16 +27,17 @@ def transcribe():
         audio_url = f"{recording_url}.mp3"
         print("Downloading audio from:", audio_url)
 
-        # Download the audio file
+        # Download and save the audio file
         audio = requests.get(audio_url)
-        audio_file = BytesIO(audio.content)
+        with open("temp.mp3", "wb") as f:
+            f.write(audio.content)
 
         # Send to OpenAI Whisper
-        whisper_response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=("audio.mp3", audio_file),
-            mime_type="audio/mpeg"
-        )
+        with open("temp.mp3", "rb") as f:
+            whisper_response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f
+            )
         user_text = whisper_response.text
 
         # Send to GPT for a reply
@@ -67,3 +67,4 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
