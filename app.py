@@ -22,25 +22,23 @@ def voice():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        # Use the correct recording media URL
         recording_url = request.form["RecordingUrl"]
         audio_url = f"{recording_url}.mp3"
         print("Downloading audio from:", audio_url)
 
-        # Download and save the audio file
-        audio = requests.get(audio_url)
+        headers = {"User-Agent": "Mozilla/5.0"}
+        audio = requests.get(audio_url, headers=headers)
         with open("temp.mp3", "wb") as f:
             f.write(audio.content)
 
-        # Send to OpenAI Whisper
         with open("temp.mp3", "rb") as f:
             whisper_response = client.audio.transcriptions.create(
                 model="whisper-1",
                 file=f
             )
         user_text = whisper_response.text
+        print("Transcription:", user_text)
 
-        # Send to GPT for a reply
         gpt_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
@@ -49,8 +47,8 @@ def transcribe():
             ]
         )
         reply = gpt_response.choices[0].message.content
+        print("GPT Response:", reply)
 
-        # Respond to caller
         response = VoiceResponse()
         response.say(reply)
         return str(response)
@@ -61,10 +59,15 @@ def transcribe():
         response.say("Sorry, there was a problem processing your request. Please try again later.")
         return str(response)
     
+    finally:
+        try:
+            os.remove("temp.mp3")
+        except:
+            pass
+
 @app.route("/")
 def home():
     return "Dental bot running"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
