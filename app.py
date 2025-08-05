@@ -2,8 +2,8 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 import os
-from openai import OpenAI
 
+from openai import OpenAI
 app = Flask(__name__)
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
