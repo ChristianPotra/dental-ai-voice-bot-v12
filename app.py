@@ -4,10 +4,12 @@ import requests
 import os
 import openai
 
-app = Flask(__name__)
-
-# Set your OpenAI API key
 openai.api_key = os.environ["OPENAI_API_KEY"]
+
+# then use:
+openai.Audio.transcribe(...)
+openai.ChatCompletion.create(...)
+
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -66,4 +68,3 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
