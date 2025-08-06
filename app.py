@@ -2,14 +2,10 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 import os
-import openai
+from openai import OpenAI
 
-openai.api_key = os.environ["OPENAI_API_KEY"]
-
-# then use:
-openai.Audio.transcribe(...)
-openai.ChatCompletion.create(...)
-
+app = Flask(__name__)
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -34,15 +30,15 @@ def transcribe():
         with open("temp.mp3", "wb") as f:
             f.write(audio.content)
 
-        with open("temp.mp3", "rb") as f:
-            transcription = openai.audio.transcribe(
+        with open("temp.mp3", "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
                 model="whisper-1",
-                file=f
+                file=audio_file
             )
 
-        user_text = transcription["text"]
+        user_text = transcription.text
 
-        chat_response = openai.chat.completions.create(
+        chat_response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a friendly receptionist for a dental clinic in Melbourne."},
