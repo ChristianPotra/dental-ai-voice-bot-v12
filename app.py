@@ -1,67 +1,63 @@
-from flask import Flask, request, Response
-from twilio.twiml.voice_response import VoiceResponse
-from openai import OpenAI
 import os
+from flask import Flask, request, jsonify
+from openai import OpenAI
+from twilio.twiml.voice_response import VoiceResponse
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 app = Flask(__name__)
 
-# Create OpenAI client (no proxies arg)
+# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+@app.route("/", methods=["GET"])
+def home():
+    return "Dental AI Voice Bot is running!", 200
+
+# Handle incoming Twilio call
 @app.route("/voice", methods=["POST"])
 def voice():
-    """Handle incoming call from Twilio and prompt for speech."""
     response = VoiceResponse()
-    response.say("Hello, please speak after the beep. I will process your request.")
-    response.record(
-        action="/transcribe",
-        max_length=30,
-        transcribe=False,
-        play_beep=True
-    )
-    return Response(str(response), mimetype='application/xml')
+    response.say("Hello! This is the dental AI assistant. How can I help you today?")
+    return str(response)
 
+# Transcription endpoint (for recorded calls)
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    """Handle the recorded audio, transcribe it, and respond with AI."""
-    recording_url = request.form.get("RecordingUrl")
-    if not recording_url:
-        vr = VoiceResponse()
-        vr.say("Sorry, I could not get your recording.")
-        return Response(str(vr), mimetype='application/xml')
+    if "file" not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
+    
+    audio_file = request.files["file"]
 
-    # Download the audio file from Twilio
-    import requests
-    audio_file = requests.get(f"{recording_url}.wav")
-
-    # Save temporarily
-    with open("temp.wav", "wb") as f:
-        f.write(audio_file.content)
-
-    # Transcribe using OpenAI Whisper
-    with open("temp.wav", "rb") as audio:
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio
+    try:
+        transcription = client.audio.transcriptions.create(
+            model="gpt-4o-mini-transcribe",
+            file=audio_file
         )
+        return jsonify({"text": transcription.text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    user_text = transcript.text
+# Chat completion endpoint
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    user_message = data.get("message", "")
 
-    # Generate AI response using GPT
-    ai_response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful dental clinic receptionist."},
-            {"role": "user", "content": user_text}
-        ]
-    )
-
-    answer = ai_response.choices[0].message.content
-
-    # Reply via Twilio
-    vr = VoiceResponse()
-    vr.say(answer)
-    return Response(str(vr), mimetype='application/xml')
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful dental receptionist AI."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        ai_response = completion.choices[0].message.content
+        return jsonify({"response": ai_response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
