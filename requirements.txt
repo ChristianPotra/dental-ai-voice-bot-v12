@@ -1,6 +1,6 @@
-Flask==3.0.3
-gunicorn==22.0.0
-requests==2.32.3
-twilio==8.10.0
-openai==0.28.1
-python-dotenv==1.0.1
+Flask==2.3.3
+gunicorn==21.2.0
+requests==2.32.4
+openai==1.35.14
+twilio==8.15.0
+python-dotenv==1.0.0
